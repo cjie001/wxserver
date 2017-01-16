@@ -1,0 +1,1 @@
+add_library(wxsrv STATIC wxsrv.c wxsignal.c)
