@@ -35,13 +35,20 @@ void wx_master_internal_spawn(struct wx_worker_s* worker) {
         case 0://child
             {
                 // 重置父进程的信号处理
-                signal(SIGCHLD, SIG_IGN);
-                signal(SIGTERM, SIG_IGN);
-                signal(SIGINT,  SIG_IGN);
-                signal(SIGTTOU, SIG_IGN);
-                signal(SIGTTIN, SIG_IGN);
-                signal(SIGTSTP, SIG_IGN);
-                signal(SIGHUP,  SIG_IGN);
+                signal(SIGCHLD, SIG_DFL);
+                signal(SIGTERM, SIG_DFL);
+                signal(SIGINT,  SIG_DFL);
+                signal(SIGTTOU, SIG_DFL);
+                signal(SIGTTIN, SIG_DFL);
+                signal(SIGTSTP, SIG_DFL);
+                signal(SIGHUP,  SIG_DFL);
+                wx_signal_set(SIGCHLD, 0);
+                wx_signal_set(SIGTERM, 0);
+                wx_signal_set(SIGINT, 0);
+                wx_signal_set(SIGTTOU, 0);
+                wx_signal_set(SIGTTIN, 0);
+                wx_signal_set(SIGTSTP, 0);
+                wx_signal_set(SIGHUP, 0);
                 // 重置信号
                 wx_signal_init();
                 struct wx_signal_handler_s h = {0};
