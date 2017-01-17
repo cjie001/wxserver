@@ -32,7 +32,6 @@ void wx_master_internal_spawn(struct wx_worker_s* worker) {
         case -1:
             fprintf(stderr, "fork()==-1\n");
             exit(EXIT_FAILURE);
-            break;
         case 0://child
             {
                 // 重置父进程的信号处理
@@ -53,7 +52,6 @@ void wx_master_internal_spawn(struct wx_worker_s* worker) {
                 worker->job(worker);
                 exit(0);
             }
-            break;
         default:;//parent
     }
 }

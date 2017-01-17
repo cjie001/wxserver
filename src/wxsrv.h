@@ -87,7 +87,6 @@ do {                                                                            
         case -1:                                                                       \
             fprintf(stderr, "fork()==-1\n");                                           \
             exit(EXIT_FAILURE);                                                        \
-            break;                                                                     \
         case 0:                                                                        \
             break;                                                                     \
         default:                                                                       \
@@ -98,7 +97,6 @@ do {                                                                            
         case -1:                                                                       \
             fprintf(stderr, "fork()==-1\n");                                           \
             exit(EXIT_FAILURE);                                                        \
-            break;                                                                     \
         case 0:                                                                        \
             break;                                                                     \
         default:                                                                       \
