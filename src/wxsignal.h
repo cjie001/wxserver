@@ -1,9 +1,9 @@
 //
-// Created by mofan on 9/1/16.
+// Created by renwuxun on 9/1/16.
 //
 
-#ifndef WXSERVER_WXSIGNAL_H
-#define WXSERVER_WXSIGNAL_H
+#ifndef WXSIGNAL_H
+#define WXSIGNAL_H
 
 
 #include <signal.h>
@@ -18,12 +18,12 @@ struct wx_signal_handler_s {
     struct wx_signal_handler_s* next;
 };
 
-struct wx_signal_manager_s {
+struct wx_signal_s {
     uint64_t signal_got;
     struct wx_signal_handler_s* signal_handlers[64];
 };
 
-void wx_signal_reset();
+void wx_signal_init();
 
 void wx_signal_dispatch();
 
@@ -35,4 +35,4 @@ void wx_signal_remove(int sig, struct wx_signal_handler_s* h);
 
 
 
-#endif //WXSERVER_WXSIGNAL_H
+#endif //WXSIGNAL_H

@@ -1,10 +1,15 @@
 //
-// Created by mofan on 9/1/16.
+// Created by renwuxun on 9/1/16.
 //
 
 
 #include "wxsrv.h"
 
+static struct wx_master_s wx_master = {0};
+
+struct wx_master_s* wx_master_default() {
+    return &wx_master;
+}
 
 void wx_worker_on_got_term(int sig, void* data) {
     struct wx_worker_s* wkr = (struct wx_worker_s*)data;
@@ -30,10 +35,16 @@ void wx_master_internal_spawn(struct wx_worker_s* worker) {
             break;
         case 0://child
             {
-                wx_signal_reset();
+                // 重置父进程的信号处理
                 signal(SIGCHLD, SIG_IGN);
                 signal(SIGTERM, SIG_IGN);
-                signal(SIGINT, SIG_IGN);
+                signal(SIGINT,  SIG_IGN);
+                signal(SIGTTOU, SIG_IGN);
+                signal(SIGTTIN, SIG_IGN);
+                signal(SIGTSTP, SIG_IGN);
+                signal(SIGHUP,  SIG_IGN);
+                // 重置信号
+                wx_signal_init();
                 struct wx_signal_handler_s h = {0};
                 h.next = NULL;
                 h.data = worker;
@@ -141,7 +152,6 @@ void wx_master_on_child_exit(int sig, void* data) {
 }
 
 void wx_master_on_got_term(int sig, void* data) {
-    fprintf(stderr, "wx_master_on_got_term\n");
     struct wx_master_s* mst = (struct wx_master_s*)data;
     mst->gotterm = 1;
     struct wx_worker_s* wkr = mst->wkr;
@@ -156,7 +166,11 @@ void wxsrv_empty_signal_handle(int sig, void* data) {}
 void wx_master_wait_workers(struct wx_master_s* mst) {
     while (mst->wkr) {
         wx_signal_dispatch();
-        usleep(100000);
+        if (mst->gotterm) {
+            usleep(100000);
+        } else {
+            pause();
+        }
     }
 }
 

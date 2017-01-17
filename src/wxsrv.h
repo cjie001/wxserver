@@ -1,9 +1,9 @@
 //
-// Created by mofan on 9/1/16.
+// Created by renwuxun on 9/1/16.
 //
 
-#ifndef WXSERVER_WXSRV_H
-#define WXSERVER_WXSRV_H
+#ifndef WXSRV_H
+#define WXSRV_H
 
 
 #include "wxsignal.h"
@@ -37,6 +37,8 @@ struct wx_master_s {
     int gotterm;
 };
 
+
+struct wx_master_s* wx_master_default();
 
 int wx_worker_should_exit(struct wx_worker_s* wkr);
 
@@ -117,4 +119,4 @@ void wx_master_init_worker(
 );
 
 
-#endif //WXSERVER_WXSRV_H
+#endif //WXSRV_H
