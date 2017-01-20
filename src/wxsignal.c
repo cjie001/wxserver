@@ -92,3 +92,5 @@ void wx_signal_remove(int sig, struct wx_signal_handler_s* h) {
         }
     }
 }
+
+void wx_signal_empty_handle(int sig, void* data) {}

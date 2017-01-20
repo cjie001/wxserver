@@ -166,8 +166,6 @@ void wx_master_on_got_term(int sig, void* data) {
     }
 }
 
-void wxsrv_empty_signal_handle(int sig, void* data) {}
-
 void wx_master_wait_workers(struct wx_master_s* mst) {
     while (mst->wkr) {
         wx_signal_dispatch();
@@ -193,5 +191,4 @@ void wx_master_init_worker(
     wkr->call_from_master_on_exit_0 = on_exit_0;
     wkr->call_from_master_on_exit_err = on_exit_err;
     wkr->call_from_master_on_term = on_exit_term;
-    wkr->master = mst;
 }

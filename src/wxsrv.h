@@ -26,7 +26,6 @@ struct wx_worker_s {
     void (*call_from_master_on_exit_err)(struct wx_worker_s* wkr);
     void (*job)(struct wx_worker_s* wkr);
     struct wx_worker_s* next;
-    struct wx_master_s* master;
 };
 
 struct wx_master_s {
@@ -71,14 +70,12 @@ do {                                                                            
     wx_signal_register(SIGINT, &master_got_int_handler);                               \
 } while (0)
 
-void wxsrv_empty_signal_handle(int sig, void* data);
-
 #define wx_master_demonize_in_main()                                                   \
 do {                                                                                   \
     struct wx_signal_handler_s empty_sig_handler;                                      \
     empty_sig_handler.data=NULL;                                                       \
     empty_sig_handler.next=NULL;                                                       \
-    empty_sig_handler.callback = wxsrv_empty_signal_handle;                            \
+    empty_sig_handler.callback = wx_signal_empty_handle;                               \
     wx_signal_register(SIGTTOU, &empty_sig_handler);                                   \
     wx_signal_register(SIGTTIN, &empty_sig_handler);                                   \
     wx_signal_register(SIGTSTP, &empty_sig_handler);                                   \
