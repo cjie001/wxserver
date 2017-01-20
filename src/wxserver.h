@@ -29,7 +29,7 @@ struct wx_worker_s {
 };
 
 struct wx_master_s {
-    int pid;
+    pid_t pid;
     int argc;
     char** argv;
     struct wx_worker_s* wkr;
