@@ -18,8 +18,8 @@ void wx_worker_on_got_term(int sig, void* data) {
 
 int wx_worker_should_exit(struct wx_worker_s* wkr) {
     if (wkr->pid != 0) {
-        printf("u can not call wx_worker_should_exit() in master context");
-        exit(1);
+        fprintf(stderr, "u can not call wx_worker_should_exit() in master context\n");
+        exit(EXIT_FAILURE);
     }
     wx_signal_dispatch();
     return wkr->gotterm;
