@@ -32,9 +32,34 @@ void on_exit_term(struct wx_worker_s* wkr) {
 
 
 int main(int argc, char** argv) {
+
+    int daemon = 0;
+    int option_char;
+    while ((option_char = getopt(argc, argv, "dh")) != -1) {
+        switch (option_char) {
+            case 'd':
+                daemon = 1;
+                break;
+            case 'h':
+                fprintf(stderr, "Usage: %s [OPTION]\n", argv[0]);
+                fprintf(stderr, "Option:\n");
+                fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft.\n");
+                fprintf(stderr, "    -h this message.\n");
+                exit(EXIT_SUCCESS);
+            case '?':
+                fprintf(stderr, "Usage: %s [OPTION]\n", argv[0]);
+                fprintf(stderr, "Option:\n");
+                fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft.\n");
+                fprintf(stderr, "    -h this message.\n");
+                exit(EXIT_FAILURE);
+            default:;
+        }
+    }
+
+
     struct wx_master_s* master = wx_master_default();
     wx_master_init_in_main(master);
-    if (argc > 1 && 0==strncmp(argv[1], "-d", 2)) {
+    if (daemon) {
         wx_master_demonize_in_main();
     }
 
