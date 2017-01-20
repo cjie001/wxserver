@@ -3,7 +3,7 @@
 //
 
 
-#include "wxsrv.h"
+#include "wxserver.h"
 
 static struct wx_master_s wx_master = {0};
 

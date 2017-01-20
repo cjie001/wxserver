@@ -8,6 +8,6 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -Wall")
 add_subdirectory(src)
 add_subdirectory(tests)
 
-add_executable(testserver tests/testserver.c src/wxsrv.h src/wxsignal.h)
+add_executable(testserver tests/testserver.c src/wxserver.h src/wxsignal.h)
 
-target_link_libraries(testserver wxsrv)
+target_link_libraries(testserver wxserver)

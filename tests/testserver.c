@@ -4,7 +4,7 @@
 
 
 
-#include "../src/wxsrv.h"
+#include "../src/wxserver.h"
 
 
 void job(struct wx_worker_s* wkr) {
