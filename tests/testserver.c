@@ -39,9 +39,9 @@ int main(int argc, char** argv) {
     }
 
     struct wx_worker_s wkr1;
-    wx_master_init_worker(&wkr1, job, on_exit_0, on_exit_err, on_exit_term, master);
+    wx_master_init_worker(&wkr1, job, on_exit_0, on_exit_err, on_exit_term);
     struct wx_worker_s wkr2;
-    wx_master_init_worker(&wkr2, job, on_exit_0, on_exit_err, on_exit_term, master);
+    wx_master_init_worker(&wkr2, job, on_exit_0, on_exit_err, on_exit_term);
 
     wx_master_spawn(master, &wkr1);
     wx_master_spawn(master, &wkr2);

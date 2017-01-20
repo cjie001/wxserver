@@ -109,8 +109,7 @@ void wx_master_init_worker(
         void(*job)(struct wx_worker_s*),
         void(*on_exit_0)(struct wx_worker_s*),
         void(*on_exit_err)(struct wx_worker_s*),
-        void(*on_exit_term)(struct wx_worker_s*),
-        struct wx_master_s* mst
+        void(*on_exit_term)(struct wx_worker_s*)
 );
 
 
