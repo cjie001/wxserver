@@ -2,8 +2,8 @@
 // Created by renwuxun on 9/1/16.
 //
 
-#ifndef WXSRV_H
-#define WXSRV_H
+#ifndef WXSERVER_H
+#define WXSERVER_H
 
 
 #include "wxsignal.h"
@@ -114,4 +114,4 @@ void wx_master_init_worker(
 );
 
 
-#endif //WXSRV_H
+#endif //WXSERVER_H
