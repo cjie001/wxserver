@@ -47,7 +47,7 @@ void wx_master_on_child_exit(int sig, void* data);
 
 void wx_master_on_got_term(int sig, void* data);
 
-#define wx_master_init_in_main(master)                                                 \
+#define wx_master_init(master)                                                 \
 do {                                                                                   \
     memset((master), 0, sizeof(struct wx_master_s));                                   \
     (master)->pid = getpid();                                                          \
@@ -70,7 +70,7 @@ do {                                                                            
     wx_signal_register(SIGINT, &master_got_int_handler);                               \
 } while (0)
 
-#define wx_master_demonize_in_main()                                                   \
+#define wx_master_demonize()                                                   \
 do {                                                                                   \
     struct wx_signal_handler_s empty_sig_handler;                                      \
     empty_sig_handler.data=NULL;                                                       \

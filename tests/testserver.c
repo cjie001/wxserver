@@ -58,9 +58,9 @@ int main(int argc, char** argv) {
 
 
     struct wx_master_s* master = wx_master_default();
-    wx_master_init_in_main(master);
+    wx_master_init(master);
     if (daemon) {
-        wx_master_demonize_in_main();
+        wx_master_demonize();
     }
 
     struct wx_worker_s wkr1;
