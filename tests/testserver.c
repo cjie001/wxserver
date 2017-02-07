@@ -30,6 +30,13 @@ void on_exit_term(struct wx_worker_s* wkr) {
 }
 
 
+void show_help(char* argv_0) {
+    fprintf(stderr, "Usage: %s [OPTION]\n", argv_0);
+    fprintf(stderr, "Option:\n");
+    fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft.\n");
+    fprintf(stderr, "    -h this message.\n");
+}
+
 
 int main(int argc, char** argv) {
 
@@ -41,16 +48,10 @@ int main(int argc, char** argv) {
                 daemon = 1;
                 break;
             case 'h':
-                fprintf(stderr, "Usage: %s [OPTION]\n", argv[0]);
-                fprintf(stderr, "Option:\n");
-                fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft.\n");
-                fprintf(stderr, "    -h this message.\n");
+                show_help(argv[0]);
                 exit(EXIT_SUCCESS);
             case '?':
-                fprintf(stderr, "Usage: %s [OPTION]\n", argv[0]);
-                fprintf(stderr, "Option:\n");
-                fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft.\n");
-                fprintf(stderr, "    -h this message.\n");
+                show_help(argv[0]);
                 exit(EXIT_FAILURE);
             default:;
         }
