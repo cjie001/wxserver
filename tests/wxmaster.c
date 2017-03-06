@@ -75,7 +75,8 @@ void show_help(char* argv_0) {
 int wxmaster_listen(char* ip, uint16_t port) {
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     if (listenfd<0) {
-        return -1;
+        fprintf(stderr, "error on create socket(PF_INET, SOCK_STREAM, 0)\n");
+        exit(EXIT_FAILURE);
     }
     struct sockaddr_in srvaddr;
     memset(&srvaddr, 0, sizeof(struct sockaddr_in));
@@ -92,10 +93,12 @@ int wxmaster_listen(char* ip, uint16_t port) {
     fcntl(listenfd, F_SETFL, fcntl(listenfd, F_GETFL) | O_NONBLOCK);
 
     if (bind(listenfd, (struct sockaddr*)&srvaddr, sizeof(struct sockaddr)) < 0) {
-        return -1;
+        fprintf(stderr, "bind error [ip:%s, port:%d]\n", ip, port);
+        exit(EXIT_FAILURE);
     }
     if (listen(listenfd, 511) < 0) {
-        return -1;
+        fprintf(stderr, "listen error [ip:%s, port:%d]\n", ip, port);
+        exit(EXIT_FAILURE);
     }
 
     return listenfd;
