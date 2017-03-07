@@ -167,13 +167,14 @@ void wx_master_on_got_term(int sig, void* data) {
 }
 
 void wx_master_wait_workers(struct wx_master_s* mst) {
-    while (mst->wkr) {
-        wx_signal_dispatch();
+    wx_signal_dispatch();
+    for (;mst->wkr;) {
         if (mst->gotterm) {
             usleep(100000);
         } else {
             pause();
         }
+        wx_signal_dispatch();
     }
 }
 
