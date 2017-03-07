@@ -11,8 +11,6 @@
 #include "../src/wxserver.h"
 
 
-//#define __USE_GNU
-
 
 struct worker_env_s {
     int listen_fd;
@@ -66,7 +64,7 @@ void show_help(char* argv_0) {
     fprintf(stderr, "Option:\n");
     fprintf(stderr, "    -w worker file path\n");
     fprintf(stderr, "    -n worker process number, 1 by default\n");
-    fprintf(stderr, "    -i listen ip, 0.0.0.0 by default\n");
+    fprintf(stderr, "    -i listen ip, 127.0.0.1 by default\n");
     fprintf(stderr, "    -p listen port, 8080 by default\n");
     fprintf(stderr, "    -d daemonize, but you need to redirect stdout and stderr by yourselft\n");
     fprintf(stderr, "    -h this message\n");
@@ -105,31 +103,41 @@ int wxmaster_listen(char* ip, uint16_t port) {
 }
 
 
+struct conf_s {
+    char workerfile[128];
+    int workercount;
+    char ip[16];
+    int port;
+    int daemon;
+};
+
+struct conf_s conf = {0};
+
+
 int main(int argc, char** argv) {
 
-    char workerfile[128] = {0};
-    int workercount = 1;
-    char ip[16] = "127.0.0.1";
-    int port = 8080;
-    int daemon = 0;
+    conf.workercount = 1;
+    strcpy(conf.ip, "127.0.0.1");
+    conf.port = 8080;
+    conf.daemon = 0;
     int option_char;
     while ((option_char = getopt(argc, argv, "w:n:i:p:dh")) != -1) {
         switch (option_char) {
             case 'w':
-                memcpy(workerfile, optarg, strlen(optarg));
+                memcpy(conf.workerfile, optarg, strlen(optarg));
                 break;
             case 'n':
-                workercount = atoi(optarg);
+                conf.workercount = atoi(optarg);
                 break;
             case 'i':
-                memset(ip, 0, 16);
-                memcpy(ip, optarg, strlen(optarg));
+                memset(conf.ip, 0, 16);
+                memcpy(conf.ip, optarg, strlen(optarg));
                 break;
             case 'p':
-                port = atoi(optarg);
+                conf.port = atoi(optarg);
                 break;
             case 'd':
-                daemon = 1;
+                conf.daemon = 1;
                 break;
             case 'h':
                 show_help(argv[0]);
@@ -143,31 +151,31 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (strlen(workerfile) < 1 || access(workerfile, X_OK)!=0) {
-        fprintf(stderr, "worker file [%s] not exist\n", workerfile);
+    if (strlen(conf.workerfile) < 1 || access(conf.workerfile, X_OK)!=0) {
+        fprintf(stderr, "worker file [%s] not exist\n", conf.workerfile);
         show_help(argv[0]);
         exit(EXIT_FAILURE);
     }
 
     struct wx_master_s* master = wx_master_default();
     wx_master_init(master);
-    if (daemon) {
+    if (conf.daemon) {
         wx_master_demonize();
     }
 
 #ifndef SO_REUSEPORT
-    int listen_fd = wxmaster_listen(ip, (uint16_t)port);
+    int listen_fd = wxmaster_listen(conf.ip, (uint16_t)conf.port);
 #endif
 
-    struct worker_env_s wkr_envs[workercount];
-    struct wx_worker_s wkrs[workercount];
+    struct worker_env_s wkr_envs[conf.workercount];
+    struct wx_worker_s wkrs[conf.workercount];
     int id;
-    for (id=0; id<workercount; id++) {
+    for (id=0; id<conf.workercount; id++) {
         wkr_envs[id].master = master;
-        wkr_envs[id].file = workerfile;
-        wkr_envs[id].worker_count = workercount;
+        wkr_envs[id].file = conf.workerfile;
+        wkr_envs[id].worker_count = conf.workercount;
 #ifdef SO_REUSEPORT
-        wkr_envs[id].listen_fd = wxmaster_listen(ip, (uint16_t)port);
+        wkr_envs[id].listen_fd = wxmaster_listen(conf.ip, (uint16_t)conf.port);
 #else
         wkr_envs[id].listen_fd = listen_fd;
 #endif
