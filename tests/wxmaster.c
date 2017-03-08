@@ -16,13 +16,16 @@ struct worker_env_s {
     int listen_fd;
     int worker_count;
     char* file;
+#ifdef SO_REUSEPORT
     struct wx_master_s* master;
+#endif
 };
 
 
 void job(struct wx_worker_s* wkr) {
     struct worker_env_s* wkr_env = (struct worker_env_s*)wkr->data;
 
+#ifdef SO_REUSEPORT
     struct wx_worker_s* _wkr = wkr_env->master->wkr;
     struct worker_env_s* _wkr_env;
     for (;_wkr;) {
@@ -32,6 +35,7 @@ void job(struct wx_worker_s* wkr) {
         }
         _wkr =  _wkr->next;
     }
+#endif
 
     char* arg[] = {wkr_env->file, NULL};
 
@@ -171,7 +175,9 @@ int main(int argc, char** argv) {
     struct wx_worker_s wkrs[conf.workercount];
     int id;
     for (id=0; id<conf.workercount; id++) {
+#ifdef SO_REUSEPORT
         wkr_envs[id].master = master;
+#endif
         wkr_envs[id].file = conf.workerfile;
         wkr_envs[id].worker_count = conf.workercount;
 #ifdef SO_REUSEPORT
