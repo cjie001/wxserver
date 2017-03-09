@@ -47,7 +47,7 @@ void wx_master_on_child_exit(int sig, void* data);
 
 void wx_master_on_got_term(int sig, void* data);
 
-#define wx_master_init(master)                                                 \
+#define wx_master_init(master)                                                         \
 do {                                                                                   \
     memset((master), 0, sizeof(struct wx_master_s));                                   \
     (master)->pid = getpid();                                                          \
@@ -62,24 +62,16 @@ do {                                                                            
     master_got_term_handler.next = NULL;                                               \
     master_got_term_handler.data = (master);                                           \
     master_got_term_handler.callback = wx_master_on_got_term;                          \
-    wx_signal_register(SIGTERM, &master_got_term_handler);                             \
+    wx_signal_register(SIGTERM, &master_got_term_handler);/*ctrl+c*/                   \
     struct wx_signal_handler_s master_got_int_handler={0};                             \
     master_got_int_handler.next = NULL;                                                \
     master_got_int_handler.data = (master);                                            \
     master_got_int_handler.callback = wx_master_on_got_term;                           \
-    wx_signal_register(SIGINT, &master_got_int_handler);                               \
+    wx_signal_register(SIGINT, &master_got_int_handler); /*kill*/                      \
 } while (0)
 
-#define wx_master_demonize()                                                   \
+#define wx_master_demonize()                                                           \
 do {                                                                                   \
-    struct wx_signal_handler_s empty_sig_handler;                                      \
-    empty_sig_handler.data=NULL;                                                       \
-    empty_sig_handler.next=NULL;                                                       \
-    empty_sig_handler.callback = wx_signal_empty_handle;                               \
-    wx_signal_register(SIGTTOU, &empty_sig_handler);                                   \
-    wx_signal_register(SIGTTIN, &empty_sig_handler);                                   \
-    wx_signal_register(SIGTSTP, &empty_sig_handler);                                   \
-    wx_signal_register(SIGHUP, &empty_sig_handler);                                    \
     switch (fork()){                                                                   \
         case -1:                                                                       \
             fprintf(stderr, "fork()==-1\n");                                           \
@@ -90,15 +82,6 @@ do {                                                                            
             exit(0);                                                                   \
     }                                                                                  \
     setsid();                                                                          \
-    switch (fork()) {                                                                  \
-        case -1:                                                                       \
-            fprintf(stderr, "fork()==-1\n");                                           \
-            exit(EXIT_FAILURE);                                                        \
-        case 0:                                                                        \
-            break;                                                                     \
-        default:                                                                       \
-            exit(0);                                                                   \
-    }                                                                                  \
     umask(0);                                                                          \
 } while (0)
 
