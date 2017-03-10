@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string.h>
 #include "../src/wxserver.h"
 
 
@@ -26,7 +27,7 @@ void job(struct wx_worker_s* wkr) {
     struct worker_env_s* wkr_env = (struct worker_env_s*)wkr->data;
 
 #ifdef SO_REUSEPORT
-    struct wx_worker_s* _wkr = wkr_env->master->wkr;
+    struct wx_worker_s* _wkr = wkr_env->master->wkrs;
     struct worker_env_s* _wkr_env;
     for (;_wkr;) {
         if (_wkr != wkr) {
@@ -161,10 +162,9 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    struct wx_master_s* master = wx_master_default();
-    wx_master_init(master);
+    wx_master_init(on_exit_err, on_exit_0);
     if (conf.daemon) {
-        wx_master_demonize();
+        wx_master_daemonize();
     }
 
 #ifndef SO_REUSEPORT

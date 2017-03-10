@@ -5,190 +5,159 @@
 
 #include "wxserver.h"
 
-static struct wx_master_s wx_master = {0};
+
+static struct wx_master_s wx__master_default = {0};
 
 struct wx_master_s* wx_master_default() {
-    return &wx_master;
+    return &wx__master_default;
 }
 
-void wx_worker_on_got_term(int sig, void* data) {
-    struct wx_worker_s* wkr = (struct wx_worker_s*)data;
-    wkr->gotterm = 1;
-}
-
-int wx_worker_should_exit(struct wx_worker_s* wkr) {
-    if (wkr->pid != 0) {
-        fprintf(stderr, "u can not call wx_worker_should_exit() in master context\n");
-        exit(EXIT_FAILURE);
+static void wx_flag_stop(int sig) {
+    wx__master_default.stop = 1;
+    struct wx_worker_s* wkr = wx__master_default.wkrs;
+    for (;wkr;) {
+        kill(wkr->pid, sig);
+        wkr =  wkr->next;
     }
-    wx_signal_dispatch();
-    return wkr->gotterm;
 }
 
-void wx_master_internal_spawn(struct wx_worker_s* worker) {
+
+static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
     pid_t pid = fork();
-    worker->pid = pid;
+    w->pid = pid;
     switch (pid) {
         case -1:
-            fprintf(stderr, "fork()==-1\n");
+            perror("fork");
             exit(EXIT_FAILURE);
         case 0://child
-            {
-                // 重置父进程的信号处理
-                signal(SIGCHLD, SIG_DFL);
-                signal(SIGTERM, SIG_DFL);
-                signal(SIGINT,  SIG_DFL);
-                signal(SIGTTOU, SIG_DFL);
-                signal(SIGTTIN, SIG_DFL);
-                signal(SIGTSTP, SIG_DFL);
-                signal(SIGHUP,  SIG_DFL);
-                wx_signal_set(SIGCHLD, 0);
-                wx_signal_set(SIGTERM, 0);
-                wx_signal_set(SIGINT, 0);
-                wx_signal_set(SIGTTOU, 0);
-                wx_signal_set(SIGTTIN, 0);
-                wx_signal_set(SIGTSTP, 0);
-                wx_signal_set(SIGHUP, 0);
-                // 重置信号
-                wx_signal_init();
-                struct wx_signal_handler_s h = {0};
-                h.next = NULL;
-                h.data = worker;
-                h.callback = wx_worker_on_got_term;
-                wx_signal_set(SIGTERM, &h);
-                worker->job(worker);
-                exit(0);
+        {
+            signal(SIGTERM, SIG_DFL);
+            signal(SIGINT, SIG_DFL);
+            signal(SIGCHLD, SIG_DFL);
+            sigprocmask(SIG_SETMASK, &wx__master_default.orignal_set, NULL);
+            if (w->job) {
+                w->job(w);
             }
+            exit(EXIT_SUCCESS);
+        }
         default:;//parent
     }
 }
 
-void wx_master_spawn(struct wx_master_s* mst, struct wx_worker_s* worker) {
-    worker->id = 0;
-    struct wx_worker_s* wkr = mst->wkr;
-    for (;wkr;) {
-        if (wkr == worker) {
-            fprintf(stderr, "u can not spawn a worker instance twice\n");
-            exit(EXIT_FAILURE);
-        }
-        worker->id++;
-        wkr = wkr->next;
-    }
 
-    if (mst->wkr == NULL) {
-        mst->wkr = worker;
-    } else {
-        wkr = mst->wkr;
-        for (;wkr->next;) {
-            wkr = wkr->next;
-        }
-        wkr->next = worker;
-    }
-
-    wx_master_internal_spawn(worker);
-}
-
-void wx_master_on_child_exit(int sig, void* data) {
-    struct wx_master_s* mst = (struct wx_master_s*)data;
+static void wx_on_child_exit(int _) {
+    struct wx_worker_s* wkr, *_wkr;
     int status;
     pid_t pid;
-    struct wx_worker_s* wkr, *_wkr=NULL;
     for (;(pid = waitpid(-1, &status, WNOHANG)) > 0;) {
-        // on child exit
-        wkr = mst->wkr;
+        wkr = wx__master_default.wkrs;
         for (;wkr;) {
-            if (wkr->pid == pid) {
-                _wkr = wkr;
+            if (pid == wkr->pid) {
                 break;
             }
             wkr = wkr->next;
         }
-        if (!_wkr) {
-            fprintf(stderr, "worker not found[pid=%d]\n", pid);
+
+        if (wx__master_default.stop || (WIFEXITED(status) && 0 == WEXITSTATUS(status))) {
+            if (wx__master_default.worker_exit_success) {
+                wx__master_default.worker_exit_success(wkr);
+            }
+            // remove
+            _wkr = wx__master_default.wkrs;
+            if (_wkr == wkr) {
+                wx__master_default.wkrs = _wkr->next;
+            } else {
+                for (;_wkr->next;) {
+                    if (_wkr->next == wkr) {
+                        _wkr->next = wkr->next;
+                        break;
+                    }
+                    _wkr = _wkr->next;
+                }
+            }
+            continue;
+        }
+
+        if (wx__master_default.worker_exit_error) {
+            wx__master_default.worker_exit_error(wkr);
+        }
+
+        wx_master_spwan_worker_internal(wkr);
+    }
+}
+
+
+void wx_master_init(void (*worker_exit_error)(struct wx_worker_s*), void (*worker_exit_success)(struct wx_worker_s*)) {
+    wx__master_default.worker_exit_error = worker_exit_error;
+    wx__master_default.worker_exit_success = worker_exit_success;
+
+    signal(SIGTERM, wx_flag_stop);
+    signal(SIGINT, wx_flag_stop);
+    signal(SIGCHLD, wx_on_child_exit);
+
+    sigemptyset(&wx__master_default.save_sigs);
+    // 这些信号需要拦截下来
+    sigaddset(&wx__master_default.save_sigs, SIGCHLD);
+    sigaddset(&wx__master_default.save_sigs, SIGINT);
+    sigaddset(&wx__master_default.save_sigs, SIGTERM);
+    sigaddset(&wx__master_default.save_sigs, SIGQUIT);
+    sigaddset(&wx__master_default.save_sigs, SIGHUP);
+    sigaddset(&wx__master_default.save_sigs, SIGALRM);
+    sigaddset(&wx__master_default.save_sigs, SIGIO);
+    sigaddset(&wx__master_default.save_sigs, SIGTTOU);
+    sigaddset(&wx__master_default.save_sigs, SIGTTIN);
+    sigaddset(&wx__master_default.save_sigs, SIGTSTP);
+
+    sigprocmask(SIG_BLOCK, &wx__master_default.save_sigs, &wx__master_default.orignal_set);
+}
+
+
+void wx_master_spwan_worker(struct wx_worker_s* w) {
+    w->id = 0;
+    struct wx_worker_s* wkr = wx__master_default.wkrs;
+    for (;wkr;) {
+        if (wkr == w) {
+            fprintf(stderr, "u can not spawn a worker instance twice\n");
             exit(EXIT_FAILURE);
         }
-
-        if (mst->gotterm) {
-            if (_wkr->call_from_master_on_term) {
-                _wkr->call_from_master_on_term(_wkr);
-            }
-            // remove
-            if (mst->wkr == _wkr){
-                mst->wkr = _wkr->next;
-            } else {
-                wkr = mst->wkr;
-                for (;wkr->next;) {
-                    if (wkr->next == _wkr) {
-                        wkr->next = _wkr->next;
-                        break;
-                    }
-                    wkr = wkr->next;
-                }
-            }
-            continue;
-        }
-
-        if (WIFEXITED(status) && 0 == WEXITSTATUS(status)) {
-            if (_wkr->call_from_master_on_exit_0) {
-                _wkr->call_from_master_on_exit_0(_wkr);
-            }
-            // remove
-            if (mst->wkr == _wkr){
-                mst->wkr = _wkr->next;
-            } else {
-                wkr = mst->wkr;
-                for (;wkr->next;) {
-                    if (wkr->next == _wkr) {
-                        wkr->next = _wkr->next;
-                        break;
-                    }
-                    wkr = wkr->next;
-                }
-            }
-            continue;
-        }
-
-        if (_wkr->call_from_master_on_exit_err) {
-            _wkr->call_from_master_on_exit_err(_wkr);
-        }
-
-        wx_master_internal_spawn(_wkr);
-    }
-}
-
-void wx_master_on_got_term(int sig, void* data) {
-    struct wx_master_s* mst = (struct wx_master_s*)data;
-    mst->gotterm = 1;
-    struct wx_worker_s* wkr = mst->wkr;
-    for (;wkr;) {
-        kill(wkr->pid, SIGTERM);
+        w->id++;
         wkr = wkr->next;
     }
-}
 
-void wx_master_wait_workers(struct wx_master_s* mst) {
-    wx_signal_dispatch();
-    for (;mst->wkr;) {
-        if (mst->gotterm) {
-            usleep(100000);
-        } else {
-            pause();
+    if (wx__master_default.wkrs == NULL) {
+        wx__master_default.wkrs = w;
+    } else {
+        wkr = wx__master_default.wkrs;
+        for (;wkr->next;) {
+            wkr = wkr->next;
         }
-        wx_signal_dispatch();
+        wkr->next = w;
     }
+
+    wx_master_spwan_worker_internal(w);
 }
 
-void wx_master_init_worker(
-        struct wx_worker_s* wkr,
-        void(*job)(struct wx_worker_s*),
-        void(*on_exit_0)(struct wx_worker_s*),
-        void(*on_exit_err)(struct wx_worker_s*),
-        void(*on_exit_term)(struct wx_worker_s*)
-) {
-    wkr->next = NULL;
-    wkr->gotterm = 0;
-    wkr->job = job;
-    wkr->call_from_master_on_exit_0 = on_exit_0;
-    wkr->call_from_master_on_exit_err = on_exit_err;
-    wkr->call_from_master_on_term = on_exit_term;
+
+void wx_master_daemonize() {
+    switch (fork()) {
+        case -1:
+            perror("fork");
+            exit(EXIT_FAILURE);
+        case 0:
+            break;
+        default:
+            exit(EXIT_SUCCESS);
+    }
+    setsid();
+    umask(0);
+}
+
+
+void wx_master_wait_workers() {
+    for (;;) {
+        sigsuspend(&wx__master_default.orignal_set);
+        if (!wx__master_default.wkrs) {
+            break;
+        }
+    }
 }

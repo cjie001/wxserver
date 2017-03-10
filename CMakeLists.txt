@@ -9,8 +9,8 @@ add_subdirectory(src)
 add_subdirectory(tests)
 
 add_executable(testserver tests/testserver.c)
-add_executable(wxmaster tests/wxmaster.c)
-add_executable(testworker tests/testworker.c)
+#add_executable(wxmaster tests/wxmaster.c)
+#add_executable(testworker tests/testworker.c)
 
 target_link_libraries(testserver wxserver)
-target_link_libraries(wxmaster wxserver)
+#target_link_libraries(wxmaster wxserver)
