@@ -8,7 +8,7 @@
     make
 
 # tests运行
-    ./wxmaster -w ./testworker -n 2
+    ./testmaster -w ./testworker -n 2
 ## testworker收到的环境变量
     LISTEN_FD master监听的fd
     WKR_COUNT worker数量

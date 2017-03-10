@@ -75,7 +75,7 @@ void show_help(char* argv_0) {
     fprintf(stderr, "    -h this message\n");
 }
 
-int wxmaster_listen(char* ip, uint16_t port) {
+int testmaster_listen(char* ip, uint16_t port) {
     int listenfd = socket(PF_INET, SOCK_STREAM, 0);
     if (listenfd<0) {
         fprintf(stderr, "error on create socket(PF_INET, SOCK_STREAM, 0)\n");
@@ -168,7 +168,7 @@ int main(int argc, char** argv) {
     }
 
 #ifndef SO_REUSEPORT
-    int listen_fd = wxmaster_listen(conf.ip, (uint16_t)conf.port);
+    int listen_fd = testmaster_listen(conf.ip, (uint16_t)conf.port);
 #endif
 
     struct worker_env_s wkr_envs[conf.workercount];
@@ -176,21 +176,22 @@ int main(int argc, char** argv) {
     int id;
     for (id=0; id<conf.workercount; id++) {
 #ifdef SO_REUSEPORT
-        wkr_envs[id].master = master;
+        wkr_envs[id].master = wx_master_default();
 #endif
         wkr_envs[id].file = conf.workerfile;
         wkr_envs[id].worker_count = conf.workercount;
 #ifdef SO_REUSEPORT
-        wkr_envs[id].listen_fd = wxmaster_listen(conf.ip, (uint16_t)conf.port);
+        wkr_envs[id].listen_fd = testmaster_listen(conf.ip, (uint16_t)conf.port);
 #else
         wkr_envs[id].listen_fd = listen_fd;
 #endif
         wkrs[id].data = &wkr_envs[id];
-        wx_master_init_worker(&wkrs[id], job, on_exit_0, on_exit_err, on_exit_term);
-        wx_master_spawn(master, &wkrs[id]);
+        wkrs[id].next = NULL;
+        wkrs[id].job = job;
+        wx_master_spwan_worker(&wkrs[id]);
     }
 
-    wx_master_wait_workers(master);
+    wx_master_wait_workers();
 
     printf("master exit\n");
 
