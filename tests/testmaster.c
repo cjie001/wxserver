@@ -59,11 +59,6 @@ void on_exit_err(struct wx_worker_s* wkr) {
     printf("worker %d exit with error [from master]\n", wkr->pid);
 }
 
-void on_exit_term(struct wx_worker_s* wkr) {
-    printf("worker %d exit with signal term [from master]\n", wkr->pid);
-}
-
-
 void show_help(char* argv_0) {
     fprintf(stderr, "Usage: %s [OPTION]\n", argv_0);
     fprintf(stderr, "Option:\n");
