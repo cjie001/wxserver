@@ -23,9 +23,13 @@ void exit_ok(struct wx_worker_s* w) {
     fprintf(stderr, "id:%d exit success\n", w->id);
 }
 
+void exit_withcmd(struct wx_worker_s* w) {
+    fprintf(stderr, "id:%d exit withcmd\n", w->id);
+}
+
 
 int main(int argc, char** argv) {
-    wx_master_init(exit_err, exit_ok);
+    wx_master_init(exit_err, exit_ok, exit_withcmd);
 
     w1.job = worker_say;
     w2.job = worker_say;
