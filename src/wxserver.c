@@ -3,7 +3,9 @@
 //
 
 
+#include <errno.h>
 #include "wxserver.h"
+#include "wxsignal.h"
 
 
 static struct wx_master_s wx__master_default = {0};
@@ -12,14 +14,50 @@ struct wx_master_s* wx_master_default() {
     return &wx__master_default;
 }
 
-static void wx_flag_stop(int sig) {
+static void wx_signal_empty_handler(int _, void* __) { }
+
+static void wx_stop_workers(int signo, void* __) {
     wx__master_default.stop = 1;
     struct wx_worker_s* wkr = wx__master_default.wkrs;
-    for (;wkr;) {
-        kill(wkr->pid, sig);
-        wkr =  wkr->next;
+
+    switch (signo) {
+        case SIGTERM:
+        case SIGINT:
+            for ( ; wkr ; wkr = wkr->next) {
+                kill(wkr->pid, SIGQUIT);
+            }
+            break;
+        case SIGQUIT:
+            for ( ; wkr ; wkr = wkr->next) {
+                kill(wkr->pid, SIGWINCH);
+            }
+            break;
+        default:;
     }
 }
+
+static void wx_send_winch(int _, void* __) {
+    struct wx_worker_s* wkr = wx__master_default.wkrs;
+    for ( ; wkr ; wkr = wkr->next) {
+        kill(wkr->pid, SIGWINCH);
+    }
+}
+
+static void wx_on_child_exit(int _, void* __);
+
+
+struct wx_signal_s wx_signals[] = {
+        {SIGTERM, wx_stop_workers, NULL, NULL},
+        {SIGINT, wx_stop_workers, NULL, NULL},
+        {SIGQUIT, wx_stop_workers, NULL, NULL},
+        {SIGHUP, wx_send_winch, NULL, NULL},
+        {SIGCHLD, wx_on_child_exit, NULL, NULL},
+        {SIGWINCH, wx_signal_empty_handler, NULL, NULL},
+        {SIGUSR1, wx_signal_empty_handler, NULL, NULL},
+        {SIGUSR2, wx_signal_empty_handler, NULL, NULL},
+        {SIGALRM, wx_signal_empty_handler, NULL, NULL},
+        {SIGIO, wx_signal_empty_handler, NULL, NULL}
+};
 
 
 static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
@@ -31,10 +69,10 @@ static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
             exit(EXIT_FAILURE);
         case 0://child
         {
-            signal(SIGTERM, SIG_DFL);
-            signal(SIGINT, SIG_DFL);
-            signal(SIGCHLD, SIG_DFL);
-            sigprocmask(SIG_SETMASK, &wx__master_default.orignal_set, NULL);
+            int i, l = sizeof(wx_signals) / sizeof(wx_signals[0]);
+            for (i = 0; i < l; i++) {
+                wx_signal_del(&wx_signals[i]);
+            }
             if (w->job) {
                 w->job(w);
             }
@@ -45,11 +83,24 @@ static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
 }
 
 
-static void wx_on_child_exit(int _) {
+static void wx_on_child_exit(int _, void* __) {
     struct wx_worker_s* wkr, *_wkr;
     int status;
     pid_t pid;
-    for (;(pid = waitpid(-1, &status, WNOHANG)) > 0;) {
+
+    for (;;) {
+        pid = waitpid(-1, &status, WNOHANG);
+        if (pid == 0) {
+            break;
+        }
+        if (pid == -1) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                break;
+            }
+        }
+
         wkr = wx__master_default.wkrs;
         for (;wkr;) {
             if (pid == wkr->pid) {
@@ -58,9 +109,29 @@ static void wx_on_child_exit(int _) {
             wkr = wkr->next;
         }
 
-        if (wx__master_default.stop || (WIFEXITED(status) && 0 == WEXITSTATUS(status))) {
+        if ((WIFEXITED(status) && 0 == WEXITSTATUS(status))) {
             if (wx__master_default.worker_exit_success) {
                 wx__master_default.worker_exit_success(wkr);
+            }
+            // remove
+            _wkr = wx__master_default.wkrs;
+            if (_wkr == wkr) {
+                wx__master_default.wkrs = _wkr->next;
+            } else {
+                for (;_wkr->next;) {
+                    if (_wkr->next == wkr) {
+                        _wkr->next = wkr->next;
+                        break;
+                    }
+                    _wkr = _wkr->next;
+                }
+            }
+            continue;
+        }
+
+        if (wx__master_default.stop) {
+            if (wx__master_default.worker_exit_bycmd) {
+                wx__master_default.worker_exit_bycmd(wkr);
             }
             // remove
             _wkr = wx__master_default.wkrs;
@@ -87,28 +158,23 @@ static void wx_on_child_exit(int _) {
 }
 
 
-void wx_master_init(void (*worker_exit_error)(struct wx_worker_s*), void (*worker_exit_success)(struct wx_worker_s*)) {
+void wx_master_init(
+        void (*worker_exit_error)(struct wx_worker_s*),
+        void (*worker_exit_success)(struct wx_worker_s*),
+        void (*worker_exit_bycmd)(struct wx_worker_s*)
+) {
     wx__master_default.worker_exit_error = worker_exit_error;
     wx__master_default.worker_exit_success = worker_exit_success;
+    wx__master_default.worker_exit_bycmd = worker_exit_bycmd;
 
-    signal(SIGTERM, wx_flag_stop);
-    signal(SIGINT, wx_flag_stop);
-    signal(SIGCHLD, wx_on_child_exit);
+    int i, l = sizeof(wx_signals)/sizeof(wx_signals[0]);
+    for (i=0; i<l; i++) {
+        wx_signal_add(&wx_signals[i]);
+    }
 
-    sigemptyset(&wx__master_default.save_sigs);
-    // 这些信号需要拦截下来
-    sigaddset(&wx__master_default.save_sigs, SIGCHLD);
-    sigaddset(&wx__master_default.save_sigs, SIGINT);
-    sigaddset(&wx__master_default.save_sigs, SIGTERM);
-    sigaddset(&wx__master_default.save_sigs, SIGQUIT);
-    sigaddset(&wx__master_default.save_sigs, SIGHUP);
-    sigaddset(&wx__master_default.save_sigs, SIGALRM);
-    sigaddset(&wx__master_default.save_sigs, SIGIO);
-    sigaddset(&wx__master_default.save_sigs, SIGTTOU);
-    sigaddset(&wx__master_default.save_sigs, SIGTTIN);
-    sigaddset(&wx__master_default.save_sigs, SIGTSTP);
-
-    sigprocmask(SIG_BLOCK, &wx__master_default.save_sigs, &wx__master_default.orignal_set);
+    signal(SIGSYS, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
+    signal(0, NULL);
 }
 
 
@@ -154,10 +220,12 @@ void wx_master_daemonize() {
 
 
 void wx_master_wait_workers() {
+    usleep(100000);
     for (;;) {
-        sigsuspend(&wx__master_default.orignal_set);
+        wx_signal_dispatch();
         if (!wx__master_default.wkrs) {
             break;
         }
+        pause();
     }
 }

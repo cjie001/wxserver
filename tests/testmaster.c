@@ -59,6 +59,10 @@ void on_exit_err(struct wx_worker_s* wkr) {
     printf("worker %d exit with error [from master]\n", wkr->pid);
 }
 
+void on_exit_bycmd(struct wx_worker_s* wkr) {
+    printf("worker %d exit with cmd [from master]\n", wkr->pid);
+}
+
 void show_help(char* argv_0) {
     fprintf(stderr, "Usage: %s [OPTION]\n", argv_0);
     fprintf(stderr, "Option:\n");
@@ -157,7 +161,7 @@ int main(int argc, char** argv) {
         exit(EXIT_FAILURE);
     }
 
-    wx_master_init(on_exit_err, on_exit_0);
+    wx_master_init(on_exit_err, on_exit_0, on_exit_bycmd);
     if (conf.daemon) {
         wx_master_daemonize();
     }

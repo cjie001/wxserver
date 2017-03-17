@@ -22,13 +22,11 @@ struct wx_worker_s {
     struct wx_worker_s* next;
 };
 
-
 struct wx_master_s {
-    sigset_t save_sigs;
-    sigset_t orignal_set;
     int stop;
     void (*worker_exit_error)(struct wx_worker_s*);
     void (*worker_exit_success)(struct wx_worker_s*);
+    void (*worker_exit_bycmd)(struct wx_worker_s*);
     struct wx_worker_s* wkrs;
 };
 
@@ -37,7 +35,8 @@ struct wx_master_s* wx_master_default();
 
 void wx_master_init(
         void (*worker_exit_error)(struct wx_worker_s*),
-        void (*worker_exit_success)(struct wx_worker_s*)
+        void (*worker_exit_success)(struct wx_worker_s*),
+        void (*worker_exit_bycmd)(struct wx_worker_s*)
 );
 
 void wx_master_spwan_worker(struct wx_worker_s* w);
