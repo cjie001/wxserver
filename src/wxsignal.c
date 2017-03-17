@@ -3,15 +3,12 @@
 //
 
 
-#include <stdio.h>
-#include <unistd.h>
 #include "wxsignal.h"
 
 
 static int64_t wx_signal_got = 0;
 
 static void wx_signal_comm_handler(int signo) {
-    printf("pid:%d got %d\n", getpid(), signo);
     wx_signal_got |= 1<<(signo-1);
 }
 
@@ -78,11 +75,13 @@ void wx_signal_dispatch() {
     struct wx_signal_s* sgn;
     int i;
     for (i=0; i<64; i++) {
-        if (0 != wx_signal_got&(1<<i)) { // signo = i+1
+        if (wx_signal_got & (1<<i)) { // signo = i+1
             wx_signal_got ^= 1<<i;
-            sgn = wx_signal_conf[i];//->sighandler(i+1);
+            sgn = wx_signal_conf[i];
             for ( ; sgn ; sgn=sgn->next) {
-                sgn->sighandler(i+1, sgn->data);
+                if (sgn->sighandler) {
+                    sgn->sighandler(i+1, sgn->data);
+                }
             }
         }
     }
