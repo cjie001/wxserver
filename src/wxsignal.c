@@ -27,8 +27,14 @@ void wx_signal_add(struct wx_signal_s* sgn) {
         return;
     }
 
-    for ( ; cur->next ; ) {
-        cur = cur->next;
+    if (cur == sgn) {
+        return;
+    }
+
+    for ( ; cur->next ; cur = cur->next) {
+        if (cur->next == sgn) {
+            return;
+        }
     }
 
     cur->next = sgn;
