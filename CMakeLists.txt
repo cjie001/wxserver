@@ -5,12 +5,17 @@ project(testserver)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -Wall")
 
+option(DEVINFO "ON for dev info or OFF for release" OFF)
+IF(DEVINFO STREQUAL ON)
+    add_definitions(-DDEVINFO)
+ENDIF()
+
 add_subdirectory(src)
 add_subdirectory(tests)
 
 add_executable(testserver tests/testserver.c)
-add_executable(wxmaster tests/wxmaster.c)
+add_executable(testmaster tests/testmaster.c)
 add_executable(testworker tests/testworker.c)
 
 target_link_libraries(testserver wxserver)
-target_link_libraries(wxmaster wxserver)
+target_link_libraries(testmaster wxserver)

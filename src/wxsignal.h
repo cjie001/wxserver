@@ -1,5 +1,5 @@
 //
-// Created by renwuxun on 9/1/16.
+// Created by renwuxun on 3/16/17.
 //
 
 #ifndef WXSIGNAL_H
@@ -7,33 +7,39 @@
 
 
 #include <signal.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdio.h>
+#include <sys/types.h>
+#include <stddef.h>
 
 
-struct wx_signal_handler_s {
-    void* data;
-    void (*callback)(int sig, void* data);
-    struct wx_signal_handler_s* next;
-};
+//SIGTERM
+//SIGINT
+//SIGQUIT
+//SIGHUP
+//SIGCHLD
+//SIGWINCH
+//SIGUSR1
+//SIGUSR2
+//SIGALRM
+//SIGIO
+//SIGSYS
+//SIGPIPE
+
 
 struct wx_signal_s {
-    uint64_t signal_got;
-    struct wx_signal_handler_s* signal_handlers[64];
+    int signo;
+    void (*sighandler)(int signo, void*);
+    void* data;
+    struct wx_signal_s* next;
 };
 
-void wx_signal_init();
+
+void wx_signal_add(struct wx_signal_s* sgn);
+
+void wx_signal_del(struct wx_signal_s* sgn);
+
+struct wx_signal_s* wx_signal_clear(int signo);
 
 void wx_signal_dispatch();
-
-void wx_signal_register(int sig, struct wx_signal_handler_s* h);
-
-void wx_signal_set(int sig, struct wx_signal_handler_s* h);
-
-void wx_signal_remove(int sig, struct wx_signal_handler_s* h);
-
-void wx_signal_empty_handle(int sig, void* data);
 
 
 #endif //WXSIGNAL_H

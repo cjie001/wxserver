@@ -1,96 +1,88 @@
 //
-// Created by renwuxun on 9/1/16.
+// Created by renwuxun on 3/16/17.
 //
+
 
 #include "wxsignal.h"
 
 
-// 一个进程只允许存在一个wx_signal
-static struct wx_signal_s wx_signal = {0};
+static int64_t wx_signal_got = 0;
 
-
-void wx_signal_init() {
-    memset(&wx_signal, 0, sizeof(struct wx_signal_s));
+static void wx_signal_comm_handler(int signo) {
+    wx_signal_got |= 1<<(signo-1);
 }
 
-static void wx_signal_log(int sig) {
-    sig--;
-    const uint64_t one = 1;
-    wx_signal.signal_got |= (one<<sig);
+static struct wx_signal_s* wx_signal_conf[64] = {0};
+
+void wx_signal_add(struct wx_signal_s* sgn) {
+    if (sgn->signo < 1) {
+        return;
+    }
+
+    struct wx_signal_s* cur = wx_signal_conf[sgn->signo-1];
+
+    if (!cur) { // first
+        wx_signal_conf[sgn->signo-1] = sgn;
+        signal(sgn->signo, wx_signal_comm_handler);
+        return;
+    }
+
+    if (cur == sgn) {
+        return;
+    }
+
+    for ( ; cur->next ; cur = cur->next) {
+        if (cur->next == sgn) {
+            return;
+        }
+    }
+
+    cur->next = sgn;
+}
+
+void wx_signal_del(struct wx_signal_s* sgn) {
+    struct wx_signal_s* cur = wx_signal_conf[sgn->signo-1];
+    struct wx_signal_s* last = NULL;
+
+    for ( ; cur ; cur = cur->next) {
+        if (cur == sgn) {
+            if (last == NULL) { // last
+                wx_signal_conf[sgn->signo-1] = NULL;
+                signal(sgn->signo, SIG_DFL);
+            } else {
+                last->next = cur->next;
+            }
+            return;
+        }
+        last = cur;
+    }
+}
+
+struct wx_signal_s* wx_signal_clear(int signo) {
+    struct wx_signal_s* cur = wx_signal_conf[signo-1];
+
+    if (!cur) {
+        return NULL;
+    }
+
+    signal(signo, SIG_DFL);
+    wx_signal_conf[signo-1] = NULL;
+
+    return cur;
 }
 
 void wx_signal_dispatch() {
-    struct wx_signal_handler_s* h;
-    const uint64_t one = 1;
+    struct wx_signal_s* sgn;
     int i;
     for (i=0; i<64; i++) {
-        if (wx_signal.signal_got & (one<<i)) {
-            wx_signal.signal_got ^= one<<i;
-            h = wx_signal.signal_handlers[i];
-            while (h) {
-                h->callback(i, h->data);
-                h = h->next;
-            }
-        }
-    }
-}
-
-void wx_signal_register(int sig, struct wx_signal_handler_s* h) {
-    if (sig < 1 || sig > 64) {
-        fprintf(stderr, "sig must in [1,64]\n");
-        return;
-    }
-
-    sig--;
-    struct wx_signal_handler_s* _h = wx_signal.signal_handlers[sig];
-    if (_h == NULL) {
-        signal(sig+1, wx_signal_log);
-        wx_signal.signal_handlers[sig] = h;
-    } else {
-        while (_h->next) {
-            _h = _h->next;
-        }
-        _h->next = h;
-    }
-}
-
-void wx_signal_set(int sig, struct wx_signal_handler_s* h) {
-    if (sig < 1 || sig > 64) {
-        fprintf(stderr, "sig must in [1,64]\n");
-        return;
-    }
-
-    signal(sig, wx_signal_log);
-    sig--;
-    wx_signal.signal_handlers[sig] = h;
-}
-
-void wx_signal_remove(int sig, struct wx_signal_handler_s* h) {
-    if (sig < 1 || sig > 64) {
-        fprintf(stderr, "sig must in [1,64]\n");
-        return;
-    }
-
-    sig--;
-    int l = 64;
-    struct wx_signal_handler_s* _h;
-    while (l--) {
-        if (sig == l) {
-            _h = wx_signal.signal_handlers[l];
-            if (_h == h) {
-                wx_signal.signal_handlers[l] = h->next;
-            } else {
-                while (_h->next) {
-                    if (_h->next == h) {
-                        _h->next = h->next;
-                        break;
-                    }
-                    _h = _h->next;
+        if (wx_signal_got & (1<<i)) { // signo = i+1
+            wx_signal_got ^= 1<<i;
+            sgn = wx_signal_conf[i];
+            for ( ; sgn ; sgn=sgn->next) {
+                if (sgn->sighandler) {
+                    sgn->sighandler(i+1, sgn->data);
                 }
             }
-            break;
         }
     }
 }
-
-void wx_signal_empty_handle(int sig, void* data) {}
