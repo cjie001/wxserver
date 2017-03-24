@@ -13,3 +13,7 @@
     LISTEN_FD master监听的fd
     WKR_COUNT worker数量
     WKR_ID worker编号
+
+# 信号
+    worker: -QUIT=立即退出 -WINCH=平滑退出
+    master: -INT/-TERM=立即退出 -QUIT=平滑退出
