@@ -5,6 +5,11 @@ project(testserver)
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -Wall")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} -O2 -Wall")
 
+option(DEVINFO "ON for dev info or OFF for release" OFF)
+IF(DEVINFO STREQUAL ON)
+    add_definitions(-DDEVINFO)
+ENDIF()
+
 add_subdirectory(src)
 add_subdirectory(tests)
 

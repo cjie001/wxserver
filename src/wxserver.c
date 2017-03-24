@@ -17,6 +17,7 @@ struct wx_master_s* wx_master_default() {
 static void wx_signal_empty_handler(int _, void* __) { }
 
 static void wx_stop_workers(int signo, void* __) {
+    wx_dev("wx_stop_workers:%d", signo);
     wx__master_default.stop = 1;
     struct wx_worker_s* wkr = wx__master_default.wkrs;
 
@@ -24,6 +25,7 @@ static void wx_stop_workers(int signo, void* __) {
         case SIGTERM:
         case SIGINT:
             for ( ; wkr ; wkr = wkr->next) {
+                wx_dev("kill pid %d with %d", wkr->pid, SIGQUIT);
                 kill(wkr->pid, SIGQUIT);
             }
             break;
@@ -59,6 +61,7 @@ struct wx_signal_s wx_signals[] = {
         {SIGIO, wx_signal_empty_handler, NULL, NULL}
 };
 
+sigset_t wx_important_sigs;
 
 static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
     pid_t pid = fork();
@@ -73,6 +76,10 @@ static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
             for (i = 0; i < l; i++) {
                 wx_signal_del(&wx_signals[i]);
             }
+            if (sigprocmask(SIG_UNBLOCK, &wx_important_sigs, NULL) < 0) {
+                fprintf(stderr, "error: sigprocmask(SIG_UNBLOCK, &wx_important_sigs, NULL)\n");
+                exit(EXIT_SUCCESS);
+            }
             if (w->job) {
                 w->job(w);
             }
@@ -84,6 +91,7 @@ static void wx_master_spwan_worker_internal(struct wx_worker_s* w) {
 
 
 static void wx_on_child_exit(int _, void* __) {
+    wx_dev("wx_on_child_exit:%d", _);
     struct wx_worker_s* wkr, *_wkr;
     int status;
     pid_t pid;
@@ -109,7 +117,7 @@ static void wx_on_child_exit(int _, void* __) {
             wkr = wkr->next;
         }
 
-        if ((WIFEXITED(status) && 0 == WEXITSTATUS(status))) {
+        if ((WIFEXITED(status) && EXIT_SUCCESS == WEXITSTATUS(status))) {
             if (wx__master_default.worker_exit_success) {
                 wx__master_default.worker_exit_success(wkr);
             }
@@ -163,6 +171,8 @@ void wx_master_init(
         void (*worker_exit_success)(struct wx_worker_s*),
         void (*worker_exit_bycmd)(struct wx_worker_s*)
 ) {
+    sigemptyset(&wx_important_sigs);
+
     wx__master_default.worker_exit_error = worker_exit_error;
     wx__master_default.worker_exit_success = worker_exit_success;
     wx__master_default.worker_exit_bycmd = worker_exit_bycmd;
@@ -170,11 +180,17 @@ void wx_master_init(
     int i, l = sizeof(wx_signals)/sizeof(wx_signals[0]);
     for (i=0; i<l; i++) {
         wx_signal_add(&wx_signals[i]);
+        sigaddset(&wx_important_sigs, wx_signals[i].signo);
     }
 
     signal(SIGSYS, SIG_IGN);
     signal(SIGPIPE, SIG_IGN);
     signal(0, NULL);
+
+    if (sigprocmask(SIG_BLOCK, &wx_important_sigs, NULL) < 0) {
+        fprintf(stderr, "error: sigprocmask(SIG_BLOCK, &wx_important_sigs, NULL)\n");
+        exit(EXIT_FAILURE);
+    }
 }
 
 
@@ -220,12 +236,14 @@ void wx_master_daemonize() {
 
 
 void wx_master_wait_workers() {
-    usleep(100000);
-    for (;;) {
+    sigset_t empty_sig;
+    sigemptyset(&empty_sig);
+
+    for ( ; ; ) {
+        sigsuspend(&empty_sig);
         wx_signal_dispatch();
         if (!wx__master_default.wkrs) {
             break;
         }
-        pause();
     }
 }

@@ -13,6 +13,11 @@
 #include <signal.h>
 #include <sys/wait.h>
 
+#ifdef DEVINFO
+#define wx_dev(fmt,...) fprintf(stderr, ""fmt" [pid:%d "__FILE__":%d]\n", ##__VA_ARGS__, getpid(), __LINE__)
+#else
+#define wx_dev(fmt,...)
+#endif
 
 struct wx_worker_s {
     void* data;
